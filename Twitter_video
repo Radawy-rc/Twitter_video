@@ -1,0 +1,122 @@
+from flask import Flask, request, jsonify
+import re
+import pytube
+import yt_dlp as ytdl
+import instaloader
+
+app = Flask(__name__)
+
+def detect_platform(url):
+    """
+    تحديد المنصة بناءً على الرابط.
+    """
+    platforms = {
+        "youtube": r"(youtube\.com|youtu\.be)",
+        "tiktok": r"(tiktok\.com)",
+        "instagram": r"(instagram\.com)",
+        "facebook": r"(facebook\.com)",
+        "twitter": r"(twitter\.com)"
+    }
+    for platform, pattern in platforms.items():
+        if re.search(pattern, url):
+            return platform
+    return "unknown"
+
+def yt_video(url):
+    """
+    استخراج رابط الفيديو من YouTube.
+    """
+    try:
+        yt = pytube.YouTube(url)
+        return yt.streams.get_highest_resolution().url
+    except Exception as e:
+        return f"Error: {str(e)}"
+
+def tt_video(url):
+    """
+    استخراج رابط الفيديو من TikTok باستخدام yt-dlp.
+    """
+    try:
+        ydl_opts = {
+            'quiet': True,
+            'extract_audio': False,
+            'force_generic_extractor': True,
+        }
+        with ytdl.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(url, download=False)
+            return info['url']
+    except Exception as e:
+        return f"Error: {str(e)}"
+
+def ig_video(url):
+    """
+    استخراج رابط الفيديو من Instagram باستخدام instaloader.
+    """
+    try:
+        L = instaloader.Instaloader()
+        shortcode = url.split("/")[-2]
+        post = instaloader.Post.from_shortcode(L.context, shortcode)
+        return post.video_url
+    except Exception as e:
+        return f"Error: {str(e)}"
+
+def fb_video(url):
+    """
+    استخراج رابط الفيديو من Facebook باستخدام yt-dlp.
+    """
+    try:
+        ydl_opts = {
+            'quiet': True,
+            'extract_audio': False,
+            'force_generic_extractor': True,
+        }
+        with ytdl.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(url, download=False)
+            return info['url']
+    except Exception as e:
+        return f"Error: {str(e)}"
+
+def tw_video(url):
+    """
+    استخراج رابط الفيديو من Twitter باستخدام yt-dlp.
+    """
+    try:
+        ydl_opts = {
+            'quiet': True,
+            'extract_audio': False,
+            'force_generic_extractor': True,
+        }
+        with ytdl.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(url, download=False)
+            return info['url']
+    except Exception as e:
+        return f"Error: {str(e)}"
+
+@app.route('/get_video_url', methods=['GET'])
+def get_video_url():
+    """
+    API لاستخراج رابط الفيديو.
+    """
+    url = request.args.get('url')
+    if not url:
+        return jsonify({"error": "The 'url' parameter is required"}), 400
+
+    platform = detect_platform(url)
+    if platform == "unknown":
+        return jsonify({"error": "Unsupported platform"}), 400
+
+    if platform == "youtube":
+        video_url = yt_video(url)
+    elif platform == "tiktok":
+        video_url = tt_video(url)
+    elif platform == "instagram":
+        video_url = ig_video(url)
+    elif platform == "facebook":
+        video_url = fb_video(url)
+    elif platform == "twitter":
+        video_url = tw_video(url)
+
+    return jsonify({"platform": platform, "video_url": video_url})
+
+if __name__ == '__main__':
+    app.run(debug=True)
